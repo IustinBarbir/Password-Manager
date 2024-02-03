@@ -13,4 +13,4 @@
 - Copy; The users will be able to copy the passwords (as well as other data such as ID or website) in order to paste them instead of typing
 - Search/Lookup; The users will be able to search for the passwords that corresponds to a specific ID/Username or Website
 - Favorites/Most used; The users will be able to make certain passwords (that correspond to their most used websites/IDs) appear to the top of list
-  
+- Application; The program will be transformed into an application in order to be used by users who are not familiar with coding
