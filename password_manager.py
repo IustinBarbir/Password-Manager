@@ -267,15 +267,15 @@ def password_manager():
     label = Label(window, text="Password Manager")
     label.grid(column=1)
 
-    button = Button(window, text="+", command=add_entry)
+    button = Button(window, text="Add entry", command=add_entry)
     button.grid(column=1, pady=10)
 
     label = Label(window, text="Website")
-    label.grid(row=2, column=0, padx=80)
+    label.grid(row=3, column=0, padx=80)
     label = Label(window, text="Username")
-    label.grid(row=2, column=1, padx=80)
+    label.grid(row=3, column=1, padx=80)
     label = Label(window, text="Password")
-    label.grid(row=2, column=2, padx=80)
+    label.grid(row=3, column=2, padx=80)
 
     cursor.execute("SELECT * FROM vault")
     if cursor.fetchall() != None:
@@ -288,14 +288,14 @@ def password_manager():
                 break
 
             label1 = Label(window, text=(decrypt(array[i][1], encryption_key).decode("utf-8")), font=("Helvetica", 12))
-            label1.grid(column=0, row=i + 3)
+            label1.grid(column=0, row=i + 4)
             label1 = Label(window, text=(decrypt(array[i][2], encryption_key).decode("utf-8")), font=("Helvetica", 12))
-            label1.grid(column=1, row=i + 3)
+            label1.grid(column=1, row=i + 4)
             label1 = Label(window, text=(decrypt(array[i][3], encryption_key).decode("utf-8)")), font=("Helvetica", 12))
-            label1.grid(column=2, row=i + 3)
+            label1.grid(column=2, row=i + 4)
 
             button = Button(window, text="Delete", command=partial(confirmation_popup, array[i][0]))
-            button.grid(column=3, row=i + 3, pady=10)
+            button.grid(column=3, row=i + 4, pady=10)
 
             i += 1
 
@@ -305,7 +305,7 @@ def password_manager():
 
     # Define and place the "Generate Password" button
     generate_password_button = Button(window, text="Generate Password", command=generate_password_popup)
-    generate_password_button.grid(row=1, column=2, pady=10)
+    generate_password_button.grid(row=2, column=1, pady=10)
 
 
 # Function to generate a password popup
