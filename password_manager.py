@@ -6,6 +6,8 @@ from functools import partial
 import uuid
 import pyperclip
 import base64
+import string
+import random
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
@@ -242,21 +244,24 @@ def password_manager():
         widget.destroy()
 
     def add_entry():
-        text1 = "Website"
-        text2 = "Username"
-        text3 = "Password"
+        website = pop_up("Website")
+        if website is not None:
+            username = pop_up("Username")
+            if username is not None:
+                password = pop_up("Password")
+                if password is not None:
+                    # Encrypt the information before inserting into the database
+                    encrypted_website = encrypt(website.encode(), encryption_key)
+                    encrypted_username = encrypt(username.encode(), encryption_key)
+                    encrypted_password = encrypt(password.encode(), encryption_key)
 
-        website = encrypt(pop_up(text1).encode(), encryption_key)
-        username = encrypt(pop_up(text3).encode(), encryption_key)
-        password = encrypt(pop_up(text2).encode(), encryption_key)
+                    insert_fields = """INSERT INTO vault(website, username, password)
+                    VALUES(?, ?, ?)"""
 
-        insert_fields = """INSERT INTO vault(website, username, password)
-        VALUES(?, ?, ?)"""
+                    cursor.execute(insert_fields, (encrypted_website, encrypted_username, encrypted_password))
+                    db.commit()
 
-        cursor.execute(insert_fields, (website, username, password))
-        db.commit()
-
-        password_manager()
+                    password_manager()
 
     window.geometry("750x400")
     label = Label(window, text="Password Manager")
