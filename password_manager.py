@@ -6,8 +6,8 @@ from functools import partial
 import uuid
 import pyperclip
 import base64
-import string
 import random
+import string
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
@@ -302,6 +302,52 @@ def password_manager():
             cursor.execute("SELECT * FROM vault")
             if len(cursor.fetchall()) <= i:
                 break
+
+    # Define and place the "Generate Password" button
+    generate_password_button = Button(window, text="Generate Password", command=generate_password_popup)
+    generate_password_button.grid(row=1, column=2, pady=10)
+
+
+# Function to generate a password popup
+def generate_password_popup():
+    generated_password = generate_password_function()
+
+    popup_window = Toplevel(window)
+    popup_window.title("Generated Password")
+    popup_window.geometry("300x150")
+
+    label = Label(popup_window, text="Newly Generated Password:")
+    label.pack()
+
+    password_label = Label(popup_window, text=generated_password)
+    password_label.pack()
+
+    def copy_password():
+        pyperclip.copy(generated_password)
+
+    copy_button = Button(popup_window, text="Copy", command=copy_password)
+    copy_button.pack()
+
+
+# Function to generate a password
+def generate_password_function():
+    # Generate the password with specified requirements
+    special_characters = "!@#$%^&*()_+=-"
+    digits = string.digits
+    lowercase_letters = string.ascii_lowercase
+    uppercase_letters = string.ascii_uppercase
+
+    # At least one of each
+    generated_password = random.choice(special_characters)
+    generated_password += random.choice(digits)
+    generated_password += random.choice(lowercase_letters)
+    generated_password += random.choice(uppercase_letters)
+
+    # Fill up to length 13
+    generated_password += ''.join(random.choices(special_characters + digits + lowercase_letters + uppercase_letters, k=9))
+    generated_password = ''.join(random.sample(generated_password, len(generated_password)))
+
+    return generated_password
 
 
 cursor.execute("SELECT * FROM masterpassword")
