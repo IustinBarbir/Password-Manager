@@ -35,7 +35,7 @@ def decrypt(message: bytes, token: bytes) -> bytes:
     return Fernet(token).decrypt(message)
 
 
-# Database
+# Database setup
 with sqlite3.connect("password_manager.db") as db:
     cursor = db.cursor()
 
@@ -55,23 +55,21 @@ password TEXT NOT NULL);
 """)
 
 
-# Pop ups
+# Pop-ups
 def pop_up(text):
     answer = simpledialog.askstring("input string", text)
     return answer
 
 
-# Window
+# Main window setup
 window = Tk()
 window.update()
-
 window.title("Password Manager")
 
 
 def hash_password(input):
     hash = hashlib.sha256((input))
     hash = hash.hexdigest()
-
     return hash
 
 
@@ -94,10 +92,9 @@ def first_screen():
     text1 = Entry(window, width=20)
     text1.pack()
 
-    def save_password():
+    def save_password(event=None):
         if text.get() == text1.get():
             sql = "DELETE FROM masterpassword WHERE id = 1"
-
             cursor.execute(sql)
 
             hashed_password = hash_password(text.get().encode("utf-8"))
@@ -118,6 +115,9 @@ def first_screen():
 
     button = Button(window, text="Save", command=save_password)
     button.pack(pady=10)
+
+    text.bind("<Return>", save_password)
+    text1.bind("<Return>", save_password)
 
 
 def recovery_screen(key):
@@ -167,7 +167,7 @@ def reset_screen():
         cursor.execute("SELECT * FROM masterpassword WHERE id = 1 AND recovery_key = ?", [recovery_key_check])
         return cursor.fetchall()
 
-    def check_recovery_key():
+    def check_recovery_key(event=None):
         checked = get_recovery_key()
         if checked:
             first_screen()
@@ -177,6 +177,8 @@ def reset_screen():
 
     button = Button(window, text="Check key", command=check_recovery_key)
     button.pack(pady=10)
+
+    text.bind("<Return>", check_recovery_key)
 
 
 def login_screen():
@@ -202,9 +204,8 @@ def login_screen():
         cursor.execute("SELECT * FROM masterpassword WHERE id = 1 AND password = ?", [(check_hashedPassword)])
         return cursor.fetchall()
 
-    def check_password():
+    def check_password(event=None):
         match = get_masterpassword()
-
         if match:
             password_manager()
         else:
@@ -220,11 +221,12 @@ def login_screen():
     button = Button(window, text="Reset password", command=reset_password)
     button.pack(pady=10)
 
+    text.bind("<Return>", check_password)
+
 
 def remove_entry(input):
     cursor.execute("DELETE FROM vault WHERE id = ?", (input,))
     db.commit()
-
     password_manager()
 
 
@@ -253,26 +255,35 @@ def password_manager():
     scrollbar.pack(side=RIGHT, fill=Y)
 
     canvas.configure(yscrollcommand=scrollbar.set)
-    canvas.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
     # Create a frame inside the canvas
     frame = Frame(canvas)
     canvas.create_window((0, 0), window=frame, anchor="nw")
 
+    # Bind mouse wheel scrolling
+    def on_mouse_wheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    canvas.bind_all("<MouseWheel>", on_mouse_wheel)
+
+    # Update scroll region when the frame size changes
+    def update_scroll_region(event):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    frame.bind("<Configure>", update_scroll_region)
+
     # Password Manager Title
     label = Label(frame, text="Password Manager", font=("Helvetica", 16))
-    label.grid(row=0, column=1, columnspan=3)
+    label.grid(row=0, column=0, columnspan=6, pady=10)
 
-    add_button = Button(frame, text="Add entry", command=add_entry)
-    add_button.grid(row=1, column=1, pady=10)
+    add_button = Button(frame, text="Add entry", command=add_entry, font=("Helvetica", 12, "bold"))
+    add_button.grid(row=1, column=0, columnspan=2, pady=10)
 
-    # Labels for the columns
-    website_label = Label(frame, text="Website", font=("Helvetica", 12, "bold"))
-    website_label.grid(row=2, column=0, padx=80)
-    username_label = Label(frame, text="Username", font=("Helvetica", 12, "bold"))
-    username_label.grid(row=2, column=1, padx=80)
-    password_label = Label(frame, text="Password", font=("Helvetica", 12, "bold"))
-    password_label.grid(row=2, column=2, padx=80)
+    # Labels for the columns with added spacing
+    column_labels = ["Website", "Username", "Password", "Edit", "Delete", "Copy"]
+    for col, text in enumerate(column_labels):
+        lbl = Label(frame, text=text, font=("Helvetica", 12, "bold"))
+        lbl.grid(row=2, column=col, padx=30, pady=5)
 
     cursor.execute("SELECT * FROM vault")
     entries = cursor.fetchall()
@@ -286,44 +297,111 @@ def password_manager():
 
             # Display website, username, and password in labels
             website_label = Label(frame, text=decrypted_website, font=("Helvetica", 12))
-            website_label.grid(row=i + 3, column=0)
+            website_label.grid(row=i + 3, column=0, padx=30, pady=5, sticky="w")
             username_label = Label(frame, text=decrypted_username, font=("Helvetica", 12))
-            username_label.grid(row=i + 3, column=1)
+            username_label.grid(row=i + 3, column=1, padx=30, pady=5, sticky="w")
             password_label = Label(frame, text=decrypted_password, font=("Helvetica", 12))
-            password_label.grid(row=i + 3, column=2)
+            password_label.grid(row=i + 3, column=2, padx=30, pady=5, sticky="w")
+
+            # Add "Edit" button for each entry
+            edit_button = Button(frame, text="Edit", command=partial(edit_entry, entry[0], decrypted_website, decrypted_username, decrypted_password))
+            edit_button.grid(row=i + 3, column=3, padx=30, pady=5)
 
             # Add "Delete" button for each entry
             delete_button = Button(frame, text="Delete", command=partial(confirmation_popup, entry[0]))
-            delete_button.grid(row=i + 3, column=3, padx=10, pady=10)
+            delete_button.grid(row=i + 3, column=4, padx=30, pady=5)
 
             # Add "Copy" button for each entry (to copy the password)
             copy_button = Button(frame, text="Copy", command=partial(copy_password_to_clipboard, decrypted_password))
-            copy_button.grid(row=i + 3, column=4, padx=10, pady=10)
+            copy_button.grid(row=i + 3, column=5, padx=30, pady=5)
 
     # Define and place the "Generate Password" button
-    generate_password_button = Button(frame, text="Generate Password", command=generate_password_popup)
-    generate_password_button.grid(row=1, column=2, pady=10)
+    generate_password_button = Button(frame, text="Generate Password", command=generate_password_popup, font=("Helvetica", 12, "bold"))
+    generate_password_button.grid(row=1, column=2, columnspan=4, pady=10)
 
 
-# Function to generate a random password
 def generate_password_popup():
-    length = 12
+    # Function to generate a new password
+    def generate_new_password():
+        nonlocal password
+        password = ''.join(random.choice(characters) for i in range(length))
+        password_label.config(text=password)
+
+    # Function to copy the current password to clipboard
+    def copy_password():
+        pyperclip.copy(password)
+        messagebox.showinfo("Copied", "Password copied to clipboard!")
+
+    length = 15
     characters = string.ascii_letters + string.digits + string.punctuation
     password = ''.join(random.choice(characters) for i in range(length))
 
-    def copy_password():
-        pyperclip.copy(password)
+    # Create a popup window for the generated password
+    popup = Toplevel(window)
+    popup.title("Generated Password")
+    popup.geometry("350x200")
 
-    messagebox.showinfo("Generated Password", password)
-    copy_password()
+    # Display the generated password
+    password_label = Label(popup, text=password, font=("Helvetica", 12))
+    password_label.pack(pady=10)
+
+    # Add the "Copy" button
+    copy_button = Button(popup, text="Copy", command=copy_password)
+    copy_button.pack(pady=5)
+
+    # Add the "Regenerate" button
+    regenerate_button = Button(popup, text="Regenerate", command=generate_new_password)
+    regenerate_button.pack(pady=5)
+
+    # Optionally, add a button to close the popup
+    close_button = Button(popup, text="Close", command=popup.destroy)
+    close_button.pack(pady=10)
 
 
-# Function to add a new entry to the vault
 def add_entry():
-    website = pop_up("Website")
-    username = pop_up("Username")
-    password = pop_up("Password")
+    def on_enter_website(event=None):
+        username_entry.focus_set()
+        return "break"
 
+    def on_enter_username(event=None):
+        password_entry.focus_set()
+        return "break"
+
+    def on_enter_password(event=None):
+        add_button.invoke()  # Automatically triggers the "Add" button click
+        return "break"
+
+    # Create a new window for entering website, username, and password
+    entry_window = Toplevel(window)
+    entry_window.title("Add Entry")
+    entry_window.geometry("300x200")
+
+    Label(entry_window, text="Website").pack()
+    website_entry = Entry(entry_window, width=30)
+    website_entry.pack()
+    website_entry.bind("<Return>", on_enter_website)
+    website_entry.focus()
+
+    Label(entry_window, text="Username").pack()
+    username_entry = Entry(entry_window, width=30)
+    username_entry.pack()
+    username_entry.bind("<Return>", on_enter_username)
+
+    Label(entry_window, text="Password").pack()
+    password_entry = Entry(entry_window, width=30)
+    password_entry.pack()
+    password_entry.bind("<Return>", on_enter_password)
+
+    add_button = Button(entry_window, text="Add", command=lambda: add_entry_to_db(website_entry.get(), username_entry.get(), password_entry.get()))
+    add_button.pack(pady=10)
+
+    # Bind Enter key events to the entries
+    website_entry.bind("<Return>", on_enter_website)
+    username_entry.bind("<Return>", on_enter_username)
+    password_entry.bind("<Return>", on_enter_password)
+
+
+def add_entry_to_db(website, username, password):
     encrypted_website = encrypt(website.encode(), encryption_key)
     encrypted_username = encrypt(username.encode(), encryption_key)
     encrypted_password = encrypt(password.encode(), encryption_key)
@@ -334,6 +412,68 @@ def add_entry():
     db.commit()
 
     password_manager()
+
+
+def edit_entry(entry_id, old_website, old_username, old_password):
+    def on_enter_website(event=None):
+        username_entry.focus_set()
+        return "break"
+
+    def on_enter_username(event=None):
+        password_entry.focus_set()
+        return "break"
+
+    def on_enter_password(event=None):
+        save_button.invoke()  # Automatically triggers the "Save" button click
+        return "break"
+
+    def save_changes():
+        new_website = website_entry.get()
+        new_username = username_entry.get()
+        new_password = password_entry.get()
+
+        encrypted_website = encrypt(new_website.encode(), encryption_key)
+        encrypted_username = encrypt(new_username.encode(), encryption_key)
+        encrypted_password = encrypt(new_password.encode(), encryption_key)
+
+        cursor.execute("""
+        UPDATE vault SET website = ?, username = ?, password = ? WHERE id = ?
+        """, (encrypted_website, encrypted_username, encrypted_password, entry_id))
+        db.commit()
+
+        password_manager()
+
+    # Create a new window for editing website, username, and password
+    edit_window = Toplevel(window)
+    edit_window.title("Edit Entry")
+    edit_window.geometry("300x200")
+
+    Label(edit_window, text="Website").pack()
+    website_entry = Entry(edit_window, width=30)
+    website_entry.pack()
+    website_entry.insert(0, old_website)
+    website_entry.bind("<Return>", on_enter_website)
+    website_entry.focus()
+
+    Label(edit_window, text="Username").pack()
+    username_entry = Entry(edit_window, width=30)
+    username_entry.pack()
+    username_entry.insert(0, old_username)
+    username_entry.bind("<Return>", on_enter_username)
+
+    Label(edit_window, text="Password").pack()
+    password_entry = Entry(edit_window, width=30)
+    password_entry.pack()
+    password_entry.insert(0, old_password)
+    password_entry.bind("<Return>", on_enter_password)
+
+    save_button = Button(edit_window, text="Save", command=save_changes)
+    save_button.pack(pady=10)
+
+    # Bind Enter key events to the entries
+    website_entry.bind("<Return>", on_enter_website)
+    username_entry.bind("<Return>", on_enter_username)
+    password_entry.bind("<Return>", on_enter_password)
 
 
 cursor.execute("SELECT * FROM masterpassword")
