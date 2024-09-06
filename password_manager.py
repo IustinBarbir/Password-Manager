@@ -276,48 +276,64 @@ def password_manager():
     label = Label(frame, text="Password Manager", font=("Helvetica", 16))
     label.grid(row=0, column=0, columnspan=6, pady=10)
 
+    # Add entry button
     add_button = Button(frame, text="Add entry", command=add_entry, font=("Helvetica", 12, "bold"))
-    add_button.grid(row=1, column=0, columnspan=2, pady=10)
+    add_button.grid(row=1, column=0, pady=10, padx=10)
 
-    # Labels for the columns with added spacing
-    column_labels = ["Website", "Username", "Password", "Edit", "Delete", "Copy"]
-    for col, text in enumerate(column_labels):
-        lbl = Label(frame, text=text, font=("Helvetica", 12, "bold"))
-        lbl.grid(row=2, column=col, padx=30, pady=5)
+    # Generate Password button
+    generate_password_button = Button(frame, text="Generate Password", command=generate_password_popup, font=("Helvetica", 12, "bold"))
+    generate_password_button.grid(row=1, column=1, pady=10, padx=10)
 
-    cursor.execute("SELECT * FROM vault")
-    entries = cursor.fetchall()
+    # Search bar for filtering
+    search_label = Label(frame, text="Search:", font=("Helvetica", 12, "bold"))
+    search_label.grid(row=1, column=2, pady=10, padx=10, sticky=W)
 
-    if entries:
+    search_entry = Entry(frame, width=30)
+    search_entry.grid(row=1, column=3, pady=10, padx=10, columnspan=3)
+
+    def display_entries(entries):
+        # Clear existing entries and buttons
+        for widget in frame.winfo_children():
+            if widget.grid_info().get('row', None) is not None and widget.grid_info().get('row') > 2:
+                widget.grid_forget()
+        
+        # Display entries
         for i, entry in enumerate(entries):
-            # Decrypt and display website, username, and password
             decrypted_website = decrypt(entry[1], encryption_key).decode("utf-8")
             decrypted_username = decrypt(entry[2], encryption_key).decode("utf-8")
             decrypted_password = decrypt(entry[3], encryption_key).decode("utf-8")
 
-            # Display website, username, and password in labels
             website_label = Label(frame, text=decrypted_website, font=("Helvetica", 12))
-            website_label.grid(row=i + 3, column=0, padx=30, pady=5, sticky="w")
+            website_label.grid(row=i + 3, column=0, padx=10, pady=5, sticky=W)
             username_label = Label(frame, text=decrypted_username, font=("Helvetica", 12))
-            username_label.grid(row=i + 3, column=1, padx=30, pady=5, sticky="w")
+            username_label.grid(row=i + 3, column=1, padx=10, pady=5, sticky=W)
             password_label = Label(frame, text=decrypted_password, font=("Helvetica", 12))
-            password_label.grid(row=i + 3, column=2, padx=30, pady=5, sticky="w")
+            password_label.grid(row=i + 3, column=2, padx=10, pady=5, sticky=W)
 
-            # Add "Edit" button for each entry
             edit_button = Button(frame, text="Edit", command=partial(edit_entry, entry[0], decrypted_website, decrypted_username, decrypted_password))
-            edit_button.grid(row=i + 3, column=3, padx=30, pady=5)
+            edit_button.grid(row=i + 3, column=3, padx=10, pady=5)
 
-            # Add "Delete" button for each entry
             delete_button = Button(frame, text="Delete", command=partial(confirmation_popup, entry[0]))
-            delete_button.grid(row=i + 3, column=4, padx=30, pady=5)
+            delete_button.grid(row=i + 3, column=4, padx=10, pady=5)
 
-            # Add "Copy" button for each entry (to copy the password)
             copy_button = Button(frame, text="Copy", command=partial(copy_password_to_clipboard, decrypted_password))
-            copy_button.grid(row=i + 3, column=5, padx=30, pady=5)
+            copy_button.grid(row=i + 3, column=5, padx=10, pady=5)
 
-    # Define and place the "Generate Password" button
-    generate_password_button = Button(frame, text="Generate Password", command=generate_password_popup, font=("Helvetica", 12, "bold"))
-    generate_password_button.grid(row=1, column=2, columnspan=4, pady=10)
+    def search_entries(*args):
+        query = search_entry.get().lower()
+        cursor.execute("SELECT * FROM vault")
+        entries = cursor.fetchall()
+
+        filtered_entries = [entry for entry in entries if query in decrypt(entry[1], encryption_key).decode("utf-8").lower() or query in decrypt(entry[2], encryption_key).decode("utf-8").lower()]
+        display_entries(filtered_entries)
+
+    # Initial display of all entries
+    cursor.execute("SELECT * FROM vault")
+    entries = cursor.fetchall()
+    display_entries(entries)
+
+    # Bind search function to key release
+    search_entry.bind("<KeyRelease>", search_entries)
 
 
 def generate_password_popup():
