@@ -182,15 +182,13 @@ def reset_screen():
 def login_screen():
     for widget in window.winfo_children():
         widget.destroy()
-    window.geometry("250x150")
+    window.geometry("350x150")
 
     label = Label(window, text="Enter master password")
     label.config(anchor=CENTER)
     label.pack()
 
-    #   for real-life use application use:
-    #   text = Entry(window, width=20, show="*")
-    text = Entry(window, width=20)
+    text = Entry(window, width=20, show="*")
     text.pack()
     text.focus()
 
@@ -202,13 +200,10 @@ def login_screen():
         global encryption_key
         encryption_key = base64.urlsafe_b64encode(kdf.derive(text.get().encode()))
         cursor.execute("SELECT * FROM masterpassword WHERE id = 1 AND password = ?", [(check_hashedPassword)])
-        print(check_hashedPassword)
         return cursor.fetchall()
 
     def check_password():
         match = get_masterpassword()
-
-        print(match)
 
         if match:
             password_manager()
@@ -239,115 +234,106 @@ def confirmation_popup(entry_id):
         remove_entry(entry_id)
 
 
+# Function to copy password to clipboard
+def copy_password_to_clipboard(password):
+    pyperclip.copy(password)
+
+
 def password_manager():
     for widget in window.winfo_children():
         widget.destroy()
 
-    def add_entry():
-        website = pop_up("Website")
-        if website is not None:
-            username = pop_up("Username")
-            if username is not None:
-                password = pop_up("Password")
-                if password is not None:
-                    # Encrypt the information before inserting into the database
-                    encrypted_website = encrypt(website.encode(), encryption_key)
-                    encrypted_username = encrypt(username.encode(), encryption_key)
-                    encrypted_password = encrypt(password.encode(), encryption_key)
+    window.geometry("900x500")
 
-                    insert_fields = """INSERT INTO vault(website, username, password)
-                    VALUES(?, ?, ?)"""
+    # Create a canvas and a scrollbar
+    canvas = Canvas(window)
+    canvas.pack(side=LEFT, fill=BOTH, expand=1)
 
-                    cursor.execute(insert_fields, (encrypted_website, encrypted_username, encrypted_password))
-                    db.commit()
+    scrollbar = Scrollbar(window, orient=VERTICAL, command=canvas.yview)
+    scrollbar.pack(side=RIGHT, fill=Y)
 
-                    password_manager()
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
-    window.geometry("750x400")
-    label = Label(window, text="Password Manager")
-    label.grid(column=1)
+    # Create a frame inside the canvas
+    frame = Frame(canvas)
+    canvas.create_window((0, 0), window=frame, anchor="nw")
 
-    button = Button(window, text="Add entry", command=add_entry)
-    button.grid(column=1, pady=10)
+    # Password Manager Title
+    label = Label(frame, text="Password Manager", font=("Helvetica", 16))
+    label.grid(row=0, column=1, columnspan=3)
 
-    label = Label(window, text="Website")
-    label.grid(row=3, column=0, padx=80)
-    label = Label(window, text="Username")
-    label.grid(row=3, column=1, padx=80)
-    label = Label(window, text="Password")
-    label.grid(row=3, column=2, padx=80)
+    add_button = Button(frame, text="Add entry", command=add_entry)
+    add_button.grid(row=1, column=1, pady=10)
+
+    # Labels for the columns
+    website_label = Label(frame, text="Website", font=("Helvetica", 12, "bold"))
+    website_label.grid(row=2, column=0, padx=80)
+    username_label = Label(frame, text="Username", font=("Helvetica", 12, "bold"))
+    username_label.grid(row=2, column=1, padx=80)
+    password_label = Label(frame, text="Password", font=("Helvetica", 12, "bold"))
+    password_label.grid(row=2, column=2, padx=80)
 
     cursor.execute("SELECT * FROM vault")
-    if cursor.fetchall() != None:
-        i = 0
-        while True:
-            cursor.execute("SELECT * FROM vault")
-            array = cursor.fetchall()
+    entries = cursor.fetchall()
 
-            if len(array) == 0:
-                break
+    if entries:
+        for i, entry in enumerate(entries):
+            # Decrypt and display website, username, and password
+            decrypted_website = decrypt(entry[1], encryption_key).decode("utf-8")
+            decrypted_username = decrypt(entry[2], encryption_key).decode("utf-8")
+            decrypted_password = decrypt(entry[3], encryption_key).decode("utf-8")
 
-            label1 = Label(window, text=(decrypt(array[i][1], encryption_key).decode("utf-8")), font=("Helvetica", 12))
-            label1.grid(column=0, row=i + 4)
-            label1 = Label(window, text=(decrypt(array[i][2], encryption_key).decode("utf-8")), font=("Helvetica", 12))
-            label1.grid(column=1, row=i + 4)
-            label1 = Label(window, text=(decrypt(array[i][3], encryption_key).decode("utf-8)")), font=("Helvetica", 12))
-            label1.grid(column=2, row=i + 4)
+            # Display website, username, and password in labels
+            website_label = Label(frame, text=decrypted_website, font=("Helvetica", 12))
+            website_label.grid(row=i + 3, column=0)
+            username_label = Label(frame, text=decrypted_username, font=("Helvetica", 12))
+            username_label.grid(row=i + 3, column=1)
+            password_label = Label(frame, text=decrypted_password, font=("Helvetica", 12))
+            password_label.grid(row=i + 3, column=2)
 
-            button = Button(window, text="Delete", command=partial(confirmation_popup, array[i][0]))
-            button.grid(column=3, row=i + 4, pady=10)
+            # Add "Delete" button for each entry
+            delete_button = Button(frame, text="Delete", command=partial(confirmation_popup, entry[0]))
+            delete_button.grid(row=i + 3, column=3, padx=10, pady=10)
 
-            i += 1
-
-            cursor.execute("SELECT * FROM vault")
-            if len(cursor.fetchall()) <= i:
-                break
+            # Add "Copy" button for each entry (to copy the password)
+            copy_button = Button(frame, text="Copy", command=partial(copy_password_to_clipboard, decrypted_password))
+            copy_button.grid(row=i + 3, column=4, padx=10, pady=10)
 
     # Define and place the "Generate Password" button
-    generate_password_button = Button(window, text="Generate Password", command=generate_password_popup)
-    generate_password_button.grid(row=2, column=1, pady=10)
+    generate_password_button = Button(frame, text="Generate Password", command=generate_password_popup)
+    generate_password_button.grid(row=1, column=2, pady=10)
 
 
-# Function to generate a password popup
+# Function to generate a random password
 def generate_password_popup():
-    generated_password = generate_password_function()
-
-    popup_window = Toplevel(window)
-    popup_window.title("Generated Password")
-    popup_window.geometry("300x150")
-
-    label = Label(popup_window, text="Newly Generated Password:")
-    label.pack()
-
-    password_label = Label(popup_window, text=generated_password)
-    password_label.pack()
+    length = 12
+    characters = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(random.choice(characters) for i in range(length))
 
     def copy_password():
-        pyperclip.copy(generated_password)
+        pyperclip.copy(password)
 
-    copy_button = Button(popup_window, text="Copy", command=copy_password)
-    copy_button.pack()
+    messagebox.showinfo("Generated Password", password)
+    copy_password()
 
 
-# Function to generate a password
-def generate_password_function():
-    # Generate the password with specified requirements
-    special_characters = "!@#$%^&*()_+=-"
-    digits = string.digits
-    lowercase_letters = string.ascii_lowercase
-    uppercase_letters = string.ascii_uppercase
+# Function to add a new entry to the vault
+def add_entry():
+    website = pop_up("Website")
+    username = pop_up("Username")
+    password = pop_up("Password")
 
-    # At least one of each
-    generated_password = random.choice(special_characters)
-    generated_password += random.choice(digits)
-    generated_password += random.choice(lowercase_letters)
-    generated_password += random.choice(uppercase_letters)
+    encrypted_website = encrypt(website.encode(), encryption_key)
+    encrypted_username = encrypt(username.encode(), encryption_key)
+    encrypted_password = encrypt(password.encode(), encryption_key)
 
-    # Fill up to length 13
-    generated_password += ''.join(random.choices(special_characters + digits + lowercase_letters + uppercase_letters, k=9))
-    generated_password = ''.join(random.sample(generated_password, len(generated_password)))
+    insert_fields = """INSERT INTO vault(website, username, password)
+    VALUES(?, ?, ?) """
+    cursor.execute(insert_fields, (encrypted_website, encrypted_username, encrypted_password))
+    db.commit()
 
-    return generated_password
+    password_manager()
 
 
 cursor.execute("SELECT * FROM masterpassword")
